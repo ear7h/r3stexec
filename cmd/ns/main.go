@@ -9,6 +9,10 @@ import (
 	"syscall"
 )
 
+const (
+	usersDir = "/dev/ear7h"
+)
+
 var user string
 var root string
 
@@ -117,14 +121,36 @@ func child() {
 	// 	syscall.MS_BIND|syscall.MS_REC, "")
 	// exit(err)
 
-	// bid proc dir
-	dst = filepath.Join(root, "proc")
-	os.Mkdir(dst, 0755)
-	syscall.Mount("/proc/", dst, "proc", 0, "")
+	// mount user dir with overlayfs
+	dst = filepath.Join(usersDir, user)
+
+	//make dirs just in case
+	for _, v := range []string{"home", "mount/proc", "work", "mount"} {
+		os.MkdirAll(filepath.Join(dst, v), 0755)
+	}
+
+	// has a valid upperdir filesystem
+	cmdStr := fmt.Sprintf("-t overlay overlay -olowerdir=%s,upperdir=%s,workdir=%s %s",
+		filepath.Join(root),
+		filepath.Join(dst, "home"),
+		filepath.Join(dst, "work"),
+		filepath.Join(dst, "mount"))
+
+	err = exec.Command("mount", strings.Split(cmdStr, " ")...).Run()
 	exit(err)
 
+	// mount proc dir
+	procDir := filepath.Join(dst, "mount", "proc")
+	// procDir := filepath.Join(root, "proc")
+	os.Mkdir(dst, 0755)
+	err = syscall.Mount("/proc", procDir, "proc", 0, "")
+	exit(err)
+
+	// fmt.Println("proc target", procDir)
+
 	// pivot root
-	err = pivotRoot(root)
+	err = pivotRoot(filepath.Join(dst, "mount"))
+	// err = pivotRoot(filepath.Join(root))
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -136,19 +162,19 @@ func child() {
 	arr, _ := filepath.Glob("/*/**")
 	fmt.Println(arr)
 
-	fd, err := os.OpenFile(os.Args[2], os.O_RDONLY, 0755)
-	if err != nil {
-		fmt.Println(err)
-	} else {
-		b := make([]byte, 10)
-		_, err := fd.Read(b)
-		if err != nil {
-			fmt.Println(err)
-		} else {
-			os.Stdout.Write(b)
-			os.Stdout.Write([]byte{'\n'})
-		}
-	}
+	// fd, err := os.OpenFile(os.Args[2], os.O_RDONLY, 0755)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// } else {
+	// 	b := make([]byte, 10)
+	// 	_, err := fd.Read(b)
+	// 	if err != nil {
+	// 		fmt.Println(err)
+	// 	} else {
+	// 		os.Stdout.Write(b)
+	// 		os.Stdout.Write([]byte{'\n'})
+	// 	}
+	// }
 
 	var args []string
 	if len(os.Args) > 3 {
@@ -162,7 +188,7 @@ func child() {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	fmt.Println(*cmd)
+	// fmt.Println(*cmd)
 
 	if err := cmd.Run(); err != nil {
 		fmt.Println("exec:", err)
