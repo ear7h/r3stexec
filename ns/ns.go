@@ -105,14 +105,18 @@ func Child(user, root, cmdStr string, args []string) {
 	dst = filepath.Join(usersDir, user)
 
 	//make dirs just in case
-	for _, v := range []string{"home", "mount/proc", "work", "mount"} {
-		os.MkdirAll(filepath.Join(dst, v), 0755)
+	for _, v := range []string{"root", "root/home", "mount/etc", "mount/proc", "work", "mount"} {
+		err := os.MkdirAll(filepath.Join(dst, v), 0755)
+		if err != nil && os.IsExist(err) {
+			fmt.Println(err)
+			os.Exit(1)
+		}
 	}
 
 	// has a valid upperdir filesystem
 	overlayCmd := fmt.Sprintf("-t overlay overlay -olowerdir=%s,upperdir=%s,workdir=%s %s",
 		filepath.Join(root),
-		filepath.Join(dst, "home"),
+		filepath.Join(dst, "root"),
 		filepath.Join(dst, "work"),
 		filepath.Join(dst, "mount"))
 
@@ -132,6 +136,12 @@ func Child(user, root, cmdStr string, args []string) {
 	err = syscall.Mount("/etc", etcDir, "", syscall.MS_BIND, "")
 	exit(err)
 
+	homeDir := filepath.Join(dst, "mount", "home")
+	// procDir := filepath.Join(root, "proc")
+	os.MkdirAll(homeDir, 0755)
+	err = syscall.Mount("/home", homeDir, "", syscall.MS_BIND, "")
+	exit(err)
+
 	// fmt.Println("proc target", procDir)
 
 	// pivot root
@@ -142,7 +152,7 @@ func Child(user, root, cmdStr string, args []string) {
 		os.Exit(1)
 	}
 
-	err = syscall.Sethostname([]byte("huhhhh"))
+	err = syscall.Sethostname([]byte("r3stos UwU "))
 	exit(err)
 
 	fmt.Println(os.Getwd())
@@ -151,20 +161,6 @@ func Child(user, root, cmdStr string, args []string) {
 	fmt.Println(arr)
 
 	fmt.Println(os.Stat("/bin/env"))
-
-	// fd, err := os.OpenFile(os.Args[2], os.O_RDONLY, 0755)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// } else {
-	// 	b := make([]byte, 10)
-	// 	_, err := fd.Read(b)
-	// 	if err != nil {
-	// 		fmt.Println(err)
-	// 	} else {
-	// 		os.Stdout.Write(b)
-	// 		os.Stdout.Write([]byte{'\n'})
-	// 	}
-	// }
 
 	cmd := exec.Command(cmdStr, args...)
 
@@ -189,7 +185,7 @@ func Child(user, root, cmdStr string, args []string) {
 		},
 	}
 
-	homeDir := filepath.Join("/home", user)
+	homeDir = filepath.Join("/home", user)
 	cmd.Dir = homeDir
 	cmd.Env = []string{"HOME=" + homeDir}
 
