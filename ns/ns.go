@@ -106,6 +106,7 @@ func Child(user, root, cmdStr string, args []string) {
 
 	//make dirs just in case
 	for _, v := range []string{"root", "root/home", "mount/etc", "mount/proc", "work", "mount"} {
+		fmt.Println(filepath.Join(dst, v))
 		err := os.MkdirAll(filepath.Join(dst, v), 0755)
 		if err != nil && os.IsExist(err) {
 			fmt.Println(err)

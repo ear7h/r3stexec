@@ -25,7 +25,7 @@ type server struct{}
 var unixClient = &http.Client{
 	Transport: &http.Transport{
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			fname := filepath.Join(homeDir(addr[:len(addr)-3]), "rpc.sock")
+			fname := filepath.Join("/home", addr[:len(addr)-3], "rpc.sock")
 			fmt.Println("addr: ", fname)
 			return net.Dial("unix", fname)
 		},
@@ -81,7 +81,7 @@ func (srv *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func homeDir(user string) string {
-	return fmt.Sprintf("/dev/ear7h/%s/home/home/%s/", user, user)
+	return fmt.Sprintf("/dev/ear7h/%s/root/home/%s", user, user)
 }
 
 type socketManager struct {
@@ -109,9 +109,9 @@ func (mng *socketManager) start() {
 	// 	return
 	// }
 
-	cmd.Dir = homeDir(mng.user)
+	cmd.Dir = fmt.Sprintf("/dev/ear7h/%s/root/home/%s", mng.user, mng.user)
 
-	//fmt.Println("running cmd: ", *cmd)
+	fmt.Println("running cmd: ", *cmd)
 
 	err := cmd.Start()
 	fmt.Println("sending error", err)
