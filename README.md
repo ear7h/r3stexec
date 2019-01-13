@@ -1,3 +1,3 @@
 # r3stexec
 
-namespaced remote procedure calls
+The r3stexec suite consists of three binaries for containerization and serving of remote proceedure calls.
