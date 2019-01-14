@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 
 	"github.com/ear7h/r3stexec/rexec"
 )
@@ -18,8 +19,7 @@ var host, user string
 func main() {
 
 	flag.StringVar(&addr, "a", "tcp://:8080", "address")
-	flag.StringVar(&user, "u", "pleb", "user")
-	flag.StringVar(&host, "h", "tcp://:8080", "host")
+	flag.StringVar(&user, "u", "plebe", "user")
 	flag.StringVar(&workdir, "wd", ".", "working directory")
 	flag.Parse()
 
@@ -47,12 +47,21 @@ func serve() {
 		os.Exit(1)
 	}
 
-	http.Serve(l, &rexec.Server{})
+	pipeDir := path.Join(os.Getenv("HOME"), "rexecsocks")
+	err = os.MkdirAll(pipeDir, 0700)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	http.Serve(l, &rexec.Server{
+		PipeDir: pipeDir,
+	})
 }
 
 func client() {
 	fmt.Println(flag.Args())
-	cmd, err := rexec.Command(host, user,
+	cmd, err := rexec.Command(addr, user,
 		flag.Args()[1], flag.Args()[2:])
 	if err != nil {
 		fmt.Println(err)

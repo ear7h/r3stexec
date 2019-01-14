@@ -81,7 +81,11 @@ func (srv *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func homeDir(user string) string {
+<<<<<<< Updated upstream
 	return fmt.Sprintf("/dev/ear7h/%s/root/home/%s", user, user)
+=======
+	return fmt.Sprintf("/dev/ear7h/%s/root/home/%s/", user, user)
+>>>>>>> Stashed changes
 }
 
 type socketManager struct {
