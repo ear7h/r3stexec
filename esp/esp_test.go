@@ -81,7 +81,7 @@ func testMaster(t *testing.T) {
 	proc.Stdin.Write([]byte(Secret))
 	proc.Stdin.Close()
 
-	proc.Close()
+	proc.EOF()
 
 	byt, err := ioutil.ReadAll(proc.Stdout)
 	if err != nil {

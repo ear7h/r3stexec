@@ -30,6 +30,7 @@ func (proc *Process) Wait() (int, error) {
 	return int(i), err
 }
 
-func (proc *Process) Close() error {
+// EOF sends eof to the slaves standard in. This is necessary bc calling close on the master's fd does not effect the slave's fd.
+func (proc *Process) EOF() error {
 	return writeInt32(proc.conn, StdinClose)
 }

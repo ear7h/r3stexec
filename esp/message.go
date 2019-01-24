@@ -58,7 +58,7 @@ func readInitMsg(c *SlaveConn) (cmd string, args []string, err error) {
 // The init msg is encoded as a length-prefixed (sort of) linked list.
 // The first 4 bytes are little endian encoded int, represents
 // the number of arguments argc. The following bytes are argc+1
-// number of terminated strings prefixed with 8 byte ints. The
+// number of strings prefixed with 8 byte ints. The
 // first string is the command to run
 func writeInitMsg(c *MasterConn, cmd string, args ...string) error {
 	buf := make([]byte, 8)
