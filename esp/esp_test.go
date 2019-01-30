@@ -66,7 +66,7 @@ func testSlave(t *testing.T) {
 	}
 	defer conn.Close()
 
-	err = conn.handleExec()
+	err = conn.HandleExec()
 	if err != nil {
 		t.Fatal(err)
 	}

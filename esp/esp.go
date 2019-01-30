@@ -1,7 +1,8 @@
+package esp
+
 /*
 Execution by socket protocol
 */
-package esp
 
 import (
 	"encoding/binary"
@@ -10,6 +11,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"sync"
 	"syscall"
 )
 
@@ -54,14 +56,18 @@ type SlaveConn struct {
 }
 
 // closes connection
-func (c *SlaveConn) handleExec() error {
-	defer c.Close()
+func (c *SlaveConn) HandleExec() error {
+	defer func() {
+		fmt.Println("closing conn")
+		c.Close()
+	}()
 
 	cmdStr, args, err := readInitMsg(c)
 	if err != nil {
 		return err
 	}
 
+	fmt.Println("command: ", cmdStr, args)
 	cmd := exec.Command(cmdStr, args...)
 	inr, inw, err := os.Pipe()
 	if err != nil {
@@ -91,66 +97,74 @@ func (c *SlaveConn) handleExec() error {
 		return err
 	}
 
-	cmd.Start()
+	fmt.Println("sent files")
 
+	err = cmd.Start()
+	if err != nil {
+		fmt.Println("error starting: ", err)
+		return err
+	}
+	fmt.Println("started")
+
+	var once sync.Once
+	var exitCode int
 	errc := make(chan error)
-	endc := make(chan struct{})
+
 	go func() {
 		err := cmd.Wait()
-		select {
-		case <-endc:
-			// make the result is necessary
-			close(errc)
-			return
-		default:
-		}
-		if err != nil {
-			if exitErr, ok := err.(*exec.ExitError); ok {
-				if status, ok := exitErr.Sys().(syscall.WaitStatus); ok {
-					writeInt32(c, int32(status.ExitStatus()))
+		fmt.Println("cmd done")
 
-					errc <- nil
-					close(errc)
-					return
-				}
-			}
-		}
-		errc <- err
-		close(errc)
+		once.Do(func() {
+			errc <- err
+		})
 	}()
 
-	for len(errc) == 0 {
+	go func() {
+		var err error
 		var n int32
-		n, err = readInt32(c)
-		if err != nil {
-			endc <- struct{}{}
-			close(endc)
-			break
-		}
-		// custom commands
-		if n < 0 {
-			switch n {
-			case StdinClose:
-				inw.Close()
+		for {
+			n, err = readInt32(c)
+			if err != nil {
+				break
 			}
-			break
-		} else {
-			sig := syscall.Signal(n)
-			cmd.Process.Signal(sig)
-			fmt.Println("sig: ", sig)
+
+			if n < 0 {
+				switch n {
+				case StdinClose:
+					fmt.Println("closing stdin")
+					inr.Close()
+				}
+			} else {
+				sig := syscall.Signal(n)
+				cmd.Process.Signal(sig)
+				fmt.Println("signal", sig)
+			}
 		}
 
-	}
+		once.Do(func() {
+			errc <- err
+		})
+	}()
+
+	err = <-errc
+	close(errc)
+
 	if err == io.EOF {
 		cmd.Process.Kill()
-		return fmt.Errorf("socket closed, proc killed")
+		err = fmt.Errorf("socket closed, proc killed")
+	} else if err != nil {
+		fmt.Println("error: ", err.Error())
+		errw.Write([]byte(err.Error()))
+		exitCode = 1
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			if status, ok := exitErr.Sys().(syscall.WaitStatus); ok {
+				exitCode = status.ExitStatus()
+			}
+		}
+		writeInt32(c, int32(exitCode))
+	} else {
+		writeInt32(c, 0)
 	}
-
-	select {
-	case err = <-errc:
-	}
-
-	fmt.Println("cmd done", err)
 
 	return err
 }
@@ -288,9 +302,9 @@ func Exec(addr, cmd string, args ...string) (*Process, error) {
 	}
 
 	return &Process{
-		Stdin:  files[0],
-		Stdout: files[1],
-		Stderr: files[2],
+		stdin:  files[0],
+		stdout: files[1],
+		stderr: files[2],
 		conn:   conn,
 	}, nil
 }

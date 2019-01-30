@@ -21,9 +21,7 @@ func Parent(user, root, cmdStr string, args []string) {
 	defer runtime.UnlockOSThread()
 
 	cmd := exec.Command("/proc/self/exe",
-		append([]string{
-			fmt.Sprintf("%s:%s:%s", "child", user, root),
-			cmdStr},
+		append([]string{"child", user, root, cmdStr},
 			args...)...)
 
 	cmd.Stdin = os.Stdin
@@ -105,7 +103,7 @@ func Child(user, root, cmdStr string, args []string) {
 	dst = filepath.Join(usersDir, user)
 
 	//make dirs just in case
-	for _, v := range []string{"root", "root/home", "mount/etc", "mount/proc", "work", "mount"} {
+	for _, v := range []string{"root", "root/home/" + user, "mount/etc", "mount/proc", "work", "mount"} {
 		fmt.Println(filepath.Join(dst, v))
 		err := os.MkdirAll(filepath.Join(dst, v), 0755)
 		if err != nil && os.IsExist(err) {
@@ -158,10 +156,13 @@ func Child(user, root, cmdStr string, args []string) {
 
 	fmt.Println(os.Getwd())
 
-	arr, _ := filepath.Glob("/*")
+	arr, _ := filepath.Glob("/home/*")
+	fmt.Println(arr)
+	arr, _ = filepath.Glob("/*")
 	fmt.Println(arr)
 
-	fmt.Println(os.Stat("/bin/env"))
+	stat, err := os.Stat("/bin/env")
+	fmt.Println(stat, err)
 
 	cmd := exec.Command(cmdStr, args...)
 
@@ -186,6 +187,8 @@ func Child(user, root, cmdStr string, args []string) {
 		},
 	}
 
+	// cmd will fail with file does not exist if the hom
+	// directory does not exist
 	homeDir = filepath.Join("/home", user)
 	cmd.Dir = homeDir
 	cmd.Env = []string{"HOME=" + homeDir}
